@@ -39,6 +39,8 @@ Before running it, quit f.lux and turn off Night Shift (System Settings → Disp
 
 - **Some displays ignore gamma tables**: DisplayLink docks, Sidecar and AirPlay displays aren't tinted.
 - **Screenshots and screen recordings don't show the tint.** It's applied after the image is captured.
+- **It can't harm your monitor.** Ember Shift only changes the Mac's color lookup table (the same mechanism calibration tools use). It never touches the monitor's backlight, firmware or settings, and macOS resets the table when the app quits, crashes or the Mac restarts.
+- **Turn it off for color-critical work** such as photo or video editing: click Daylight or quit the app.
 - **Builds from source are ad hoc signed**, so macOS may ask for location permission again after each rebuild.
 
 ## Development
