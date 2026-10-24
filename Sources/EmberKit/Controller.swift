@@ -34,24 +34,34 @@ public final class Controller: ObservableObject {
     @Published private(set) var locating = false
     @Published private(set) var message: String?
 
+    private struct Fade {
+        let from: Look
+        let start: Date
+        let seconds: TimeInterval
+    }
+
     private let tint: ScreenTint
     private let defaults: UserDefaults
+    private let now: () -> Date
     private let locator = LocationProvider()
     private var applied: Look?
     private var timer: Timer?
-    private var fade: Timer?
+    private var fade: Fade?
+    private var fadeTimer: Timer?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
 
-    public init(tint: ScreenTint, defaults: UserDefaults = .standard) {
+    /// `now` is injectable so checks can drive time; the app uses the real clock.
+    public init(tint: ScreenTint, defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init) {
         self.tint = tint
         self.defaults = defaults
+        self.now = now
         let schedule = Self.load(Schedule.self, "schedule", defaults) ?? .default
         let location = Self.load(Coordinate.self, "location", defaults)
         self.schedule = schedule
         self.location = location
         fadeSeconds = defaults.object(forKey: "fadeSeconds") as? Int ?? 30
         mode = Self.load(Mode.self, "mode", defaults) ?? .schedule
-        state = schedule.state(at: Date(), location: location)
+        state = schedule.state(at: now(), location: location)
     }
 
     /// The look Ember is aiming for right now.
@@ -103,7 +113,7 @@ public final class Controller: ObservableObject {
 
     public func shutdown() {
         timer?.invalidate()
-        fade?.invalidate()
+        fadeTimer?.invalidate()
         observers.forEach { $0.0.removeObserver($0.1) }
         tint.restore()
     }
@@ -112,7 +122,7 @@ public final class Controller: ObservableObject {
 
     /// Holds `look` until the schedule's next change. `fades` is for discrete picks; slider drags pass false.
     public func hold(_ look: Look, fades: Bool = false) {
-        setMode(.hold(look, since: holdSince ?? Date()), fades: fades)
+        setMode(.hold(look, since: holdSince ?? now()), fades: fades)
     }
 
     public func resume() { setMode(.schedule, fades: true) }
@@ -172,16 +182,17 @@ public final class Controller: ObservableObject {
         update(fades: fades)
     }
 
-    private func update(fades: Bool = false) {
+    func update(fades: Bool = false) {
         let expired = expireHold()
-        state = schedule.state(at: Date(), location: location)
+        state = schedule.state(at: now(), location: location)
         show(target, over: fades || expired ? TimeInterval(fadeSeconds) : 0)
     }
 
-    private func periodic() {
+    /// The 3-second heartbeat: ends holds, follows the schedule, and repairs a reset tint.
+    func periodic() {
         fluxRunning = !NSRunningApplication.runningApplications(withBundleIdentifier: Self.fluxBundleID).isEmpty
         let expired = expireHold()
-        state = schedule.state(at: Date(), location: location)
+        state = schedule.state(at: now(), location: location)
         if expired { return show(target, over: TimeInterval(fadeSeconds)) }
         guard fade == nil, previewing == nil else { return }
         if !tint.isIntact() { tint.refresh() }
@@ -190,30 +201,37 @@ public final class Controller: ObservableObject {
 
     /// Ends the hold once the schedule reaches its next change. Returns true if it just ended.
     private func expireHold() -> Bool {
-        guard let end = holdEnd, end.time <= Date() else { return false }
+        guard let end = holdEnd, end.time <= now() else { return false }
         mode = .schedule
         persist(mode, "mode")
         return true
     }
 
     private func show(_ look: Look, over seconds: TimeInterval) {
-        fade?.invalidate()
+        fadeTimer?.invalidate()
+        fadeTimer = nil
         fade = nil
         guard seconds > 0, let from = applied, from != look else { return apply(look) }
-        let start = Date()
-        fade = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] timer in
-            MainActor.assumeIsolated {
-                guard let self else { return timer.invalidate() }
-                let p = min(Date().timeIntervalSince(start) / seconds, 1)
-                // Chase the live target so a schedule that is itself easing is met without a jump.
-                self.apply(from.blended(to: self.target, progress: p * p * (3 - 2 * p)))
-                if p >= 1 {
-                    timer.invalidate()
-                    self.fade = nil
-                }
-            }
+        fade = Fade(from: from, start: now(), seconds: seconds)
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.stepFade() }
         }
     }
+
+    /// Moves an in-progress fade to the current time.
+    func stepFade() {
+        guard let fade else { return }
+        let p = min(now().timeIntervalSince(fade.start) / fade.seconds, 1)
+        // Chase the live target so a schedule that is itself easing is met without a jump.
+        apply(fade.from.blended(to: target, progress: p * p * (3 - 2 * p)))
+        if p >= 1 {
+            fadeTimer?.invalidate()
+            fadeTimer = nil
+            self.fade = nil
+        }
+    }
+
+    var fading: Bool { fade != nil }
 
     private func apply(_ look: Look) {
         guard look != applied else { return }

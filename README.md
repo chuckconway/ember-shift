@@ -48,6 +48,7 @@ Before running it, quit f.lux and turn off Night Shift (System Settings → Disp
 | Command | What it does |
 | --- | --- |
 | `swift run EmberChecks` | Core checks: color math, sun times against reference values, schedule easing |
+| `swift run EmberKitChecks` | Controller checks with a fake clock and display: holds ending at the next change, fades, previews, relaunch, tint repair |
 | `swift run EmberSnapshot <dir>` | Renders the panel, schedule window and About window to PNGs offscreen, without touching the display |
 | `./build-app.sh` | Checks, release build, sign, install |
 

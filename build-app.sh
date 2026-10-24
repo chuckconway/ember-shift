@@ -11,6 +11,7 @@ version="$(<VERSION)"
 build_number="${BUILD_NUMBER:-1}"
 
 swift run -c release EmberChecks
+swift run EmberKitChecks  # debug: it uses @testable import
 swift build -c release --product Ember
 
 app="build/Ember Shift.app"
