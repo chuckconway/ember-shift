@@ -1,21 +1,60 @@
 # Ember Shift
 
-A menu bar app that warms and dims the screen on a schedule, and lets you override that schedule whenever you want.
+A macOS menu bar app that warms and dims your screen as the day winds down, and lets you take over whenever you want.
 
-- **Warmth and brightness as separate sliders.** Brightness dims through the gamma table, so it can go below macOS's minimum.
-- **Holds beat the schedule.** Moving a slider or clicking a preset holds that look until the schedule's next change, or until you click *Resume schedule*.
-- **A shiftable schedule.** Day, Evening and Night each start at sunrise/sunset ± an offset, or at a clock time, and each eases in over its own number of minutes.
-- **Smooth switches.** Presets, Resume, and a hold ending fade over 30 seconds (adjustable). Slider drags are instant.
-- **Self-healing.** Every 3 seconds Ember checks the display's gamma table and re-applies its tint if macOS or another app has reset it.
+<p>
+  <img src="docs/images/panel-schedule.png" width="360" alt="Ember Shift panel following the schedule: Evening, warmth and brightness sliders, presets, and today's timeline">
+  <img src="docs/images/panel-hold.png" width="360" alt="Ember Shift panel holding the Cave look until Night begins">
+</p>
 
-## Build
+## Why
+
+f.lux and Night Shift both follow the sun and give you little say in it. Ember Shift is built around overriding:
+
+- **Holds beat the schedule.** Move a slider or click a preset and that look holds until the schedule's next change, or until you click *Resume schedule*.
+- **Warmth and brightness are separate.** Brightness dims through the gamma table, so it goes below macOS's minimum.
+- **The schedule is yours.** Day, Evening and Night each start at sunrise or sunset plus or minus an offset (say, an hour before sunset) or at a clock time, and each eases in over its own number of minutes.
+- **Switches are smooth.** Presets, Resume and a hold ending fade over 30 seconds (adjustable). Slider drags are instant.
+- **It stays put.** Every 3 seconds, and on wake or display changes, Ember Shift checks each display's gamma table and re-applies its tint if macOS or another app reset it.
+- **Private.** Your location is used only on your Mac to compute sunrise and sunset. The app makes no network requests.
+
+<img src="docs/images/schedule-window.png" width="520" alt="Schedule window with per-phase start, ease, warmth and brightness controls">
+
+## Install from source
+
+Requirements: macOS 15 or later, and Swift 6 (Xcode or the Command Line Tools: `xcode-select --install`).
 
 ```sh
-./build-app.sh   # runs checks, builds release, installs ~/Applications/Ember.app
+git clone https://github.com/chuckconway/ember-shift.git
+cd ember-shift
+./build-app.sh
+open ~/Applications/"Ember Shift.app"
 ```
 
-`swift run EmberSnapshot <dir>` renders the panel and schedule window to PNGs offscreen, without touching the display.
+`build-app.sh` runs the checks, builds a release binary, signs it, and installs `Ember Shift.app` to `~/Applications`. On first launch it asks for your location; you can decline and enter coordinates in Settings instead.
 
-`swift run EmberChecks` runs the core checks: color math, sun times and schedule. Command Line Tools ship neither XCTest nor a usable Swift Testing, so these run as an executable.
+Before running it, quit f.lux and turn off Night Shift (System Settings → Displays → Night Shift). All three write the same gamma tables and will fight.
 
-Quit f.lux and turn off Night Shift before running Ember. Each one overwrites the gamma table.
+## Known limitations
+
+- **Some displays ignore gamma tables**: DisplayLink docks, Sidecar and AirPlay displays aren't tinted.
+- **Screenshots and screen recordings don't show the tint.** It's applied after the image is captured.
+- **Builds from source are ad hoc signed**, so macOS may ask for location permission again after each rebuild.
+
+## Development
+
+| Command | What it does |
+| --- | --- |
+| `swift run EmberChecks` | Core checks: color math, sun times against reference values, schedule easing |
+| `swift run EmberSnapshot <dir>` | Renders the panel, schedule window and About window to PNGs offscreen, without touching the display |
+| `./build-app.sh` | Checks, release build, sign, install |
+
+The code lives in three modules. `EmberCore` holds the pure logic: color temperature, the NOAA sunrise equation and the schedule. `EmberKit` holds the controller, the gamma output and the SwiftUI views. `Ember` is the app entry point.
+
+The Command Line Tools don't ship XCTest or a usable Swift Testing, so the checks run as an executable.
+
+Releasing signed, notarized builds is described in [RELEASING.md](RELEASING.md).
+
+## License
+
+[MIT](LICENSE)
