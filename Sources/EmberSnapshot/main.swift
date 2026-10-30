@@ -37,6 +37,9 @@ MainActor.assumeIsolated {
     controller.hold(Controller.presets[3].look)
     render(MenuView(controller: controller), width: 360, to: "panel-hold.png")
     controller.resume()
+    controller.turnOff(.hour)
+    render(MenuView(controller: controller), width: 360, to: "panel-off.png")
+    controller.turnOn()
     render(ScheduleContent(controller: controller), width: 620, to: "schedule-window.png")
     render(AboutView(), width: 380, to: "about.png")
 }

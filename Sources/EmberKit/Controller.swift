@@ -6,6 +6,7 @@ import ServiceManagement
 ///
 /// A hold beats the schedule until the schedule's next change, then hands back.
 /// Switching between looks fades over `fadeSeconds`; dragging a slider is instant.
+/// Turning it off shows true color for a while, over whichever of those is in effect.
 @MainActor
 public final class Controller: ObservableObject {
     enum Mode: Codable, Equatable {
@@ -20,8 +21,13 @@ public final class Controller: ObservableObject {
         ("Cave", Look(kelvin: 1700, brightness: 0.6)),
     ]
 
+    /// How long to show true color for.
+    public enum OffDuration: CaseIterable {
+        case fifteenMinutes, hour, morning, untilTurnedOn
+    }
+
     static let fadeRange = 0...120
-    private static let previewReturnSeconds: TimeInterval = 0.6
+    private static let quickFadeSeconds: TimeInterval = 0.6
     private static let fluxBundleID = "org.herf.Flux"
 
     @Published public var schedule: Schedule { didSet { persist(schedule, "schedule"); update() } }
@@ -30,6 +36,8 @@ public final class Controller: ObservableObject {
     @Published private(set) var mode: Mode
     @Published private(set) var state: ScheduleState
     @Published private(set) var previewing: Phase?
+    /// When true color ends; `.distantFuture` means when it's turned back on.
+    @Published private(set) var offUntil: Date?
     @Published private(set) var fluxRunning = false
     @Published private(set) var locating = false
     @Published private(set) var message: String?
@@ -61,12 +69,14 @@ public final class Controller: ObservableObject {
         self.location = location
         fadeSeconds = defaults.object(forKey: "fadeSeconds") as? Int ?? 30
         mode = Self.load(Mode.self, "mode", defaults) ?? .schedule
+        offUntil = defaults.object(forKey: "offUntil") as? Date
         state = schedule.state(at: now(), location: location)
     }
 
     /// The look Ember is aiming for right now.
     var target: Look {
         if let previewing { return schedule[previewing].look }
+        if off { return .neutral }
         if case .hold(let look, _) = mode { return look }
         return state.look
     }
@@ -82,6 +92,18 @@ public final class Controller: ObservableObject {
     var holdEnd: Event? {
         guard let since = holdSince else { return nil }
         return schedule.events(around: since, location: location).first { $0.time > since }
+    }
+
+    public var off: Bool { offUntil != nil }
+
+    /// When true color ends, or nil if it lasts until turned back on.
+    public var offEnd: Date? { offUntil == .distantFuture ? nil : offUntil }
+
+    /// The next time the Day phase starts.
+    public var nextMorning: Date {
+        let now = now()
+        return schedule.events(around: now, location: location).first { $0.phase == .day && $0.time > now }?.time
+            ?? now.addingTimeInterval(24 * 3600)
     }
 
     var holdName: String {
@@ -127,6 +149,23 @@ public final class Controller: ObservableObject {
 
     public func resume() { setMode(.schedule, fades: true) }
 
+    /// Shows true color until `duration` runs out. Any later look change turns Ember back on.
+    public func turnOff(_ duration: OffDuration) {
+        let now = now()
+        switch duration {
+        case .fifteenMinutes: setOff(until: now.addingTimeInterval(15 * 60))
+        case .hour: setOff(until: now.addingTimeInterval(3600))
+        case .morning: setOff(until: nextMorning)
+        case .untilTurnedOn: setOff(until: .distantFuture)
+        }
+        show(target, over: Self.quickFadeSeconds)
+    }
+
+    public func turnOn() {
+        setOff(until: nil)
+        update(fades: true)
+    }
+
     /// Saves what's on screen as a phase's look.
     func save(as phase: Phase) { schedule[phase].look = target }
 
@@ -138,7 +177,7 @@ public final class Controller: ObservableObject {
 
     func endPreview() {
         previewing = nil
-        show(target, over: Self.previewReturnSeconds)
+        show(target, over: Self.quickFadeSeconds)
     }
 
     func useCurrentLocation() {
@@ -177,13 +216,19 @@ public final class Controller: ObservableObject {
     // MARK: Updating the screen
 
     private func setMode(_ newMode: Mode, fades: Bool) {
+        setOff(until: nil)
         mode = newMode
         persist(mode, "mode")
         update(fades: fades)
     }
 
+    private func setOff(until date: Date?) {
+        offUntil = date
+        defaults.set(date, forKey: "offUntil")
+    }
+
     func update(fades: Bool = false) {
-        let expired = expireHold()
+        let expired = [expireHold(), expireOff()].contains(true)
         state = schedule.state(at: now(), location: location)
         show(target, over: fades || expired ? TimeInterval(fadeSeconds) : 0)
     }
@@ -191,7 +236,7 @@ public final class Controller: ObservableObject {
     /// The 3-second heartbeat: ends holds, follows the schedule, and repairs a reset tint.
     func periodic() {
         fluxRunning = !NSRunningApplication.runningApplications(withBundleIdentifier: Self.fluxBundleID).isEmpty
-        let expired = expireHold()
+        let expired = [expireHold(), expireOff()].contains(true)
         state = schedule.state(at: now(), location: location)
         if expired { return show(target, over: TimeInterval(fadeSeconds)) }
         guard fade == nil, previewing == nil else { return }
@@ -204,6 +249,13 @@ public final class Controller: ObservableObject {
         guard let end = holdEnd, end.time <= now() else { return false }
         mode = .schedule
         persist(mode, "mode")
+        return true
+    }
+
+    /// Turns Ember back on once true color runs out. Returns true if it just did.
+    private func expireOff() -> Bool {
+        guard let offUntil, offUntil <= now() else { return false }
+        setOff(until: nil)
         return true
     }
 

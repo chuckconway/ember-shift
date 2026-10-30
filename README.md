@@ -14,6 +14,7 @@ f.lux and Night Shift both follow the sun and give you little say in it. Ember S
 - **Holds beat the schedule.** Move a slider or click a preset and that look holds until the schedule's next change, or until you click *Resume schedule*.
 - **Warmth and brightness are separate.** Brightness dims through the gamma table, so it goes below macOS's minimum.
 - **The schedule is yours.** Day, Evening and Night each start at sunrise or sunset plus or minus an offset (say, an hour before sunset) or at a clock time, and each eases in over its own number of minutes.
+- **True color when you need it.** Right-click the menu bar icon, or click *Turn off* in the panel, to show true color for 15 minutes, an hour, until morning, or until you turn it back on.
 - **Switches are smooth.** Presets, Resume and a hold ending fade over 30 seconds (adjustable). Slider drags are instant.
 - **It stays put.** Every 3 seconds, and on wake or display changes, Ember Shift checks each display's gamma table and re-applies its tint if macOS or another app reset it.
 - **Private.** Your location is used only on your Mac to compute sunrise and sunset. The app makes no network requests.
@@ -40,7 +41,7 @@ Before running it, quit f.lux and turn off Night Shift (System Settings → Disp
 - **Some displays ignore gamma tables**: DisplayLink docks, Sidecar and AirPlay displays aren't tinted.
 - **Screenshots and screen recordings don't show the tint.** It's applied after the image is captured.
 - **It can't harm your monitor.** Ember Shift only changes the Mac's color lookup table (the same mechanism calibration tools use). It never touches the monitor's backlight, firmware or settings, and macOS resets the table when the app quits, crashes or the Mac restarts.
-- **Turn it off for color-critical work** such as photo or video editing: click Daylight or quit the app.
+- **Turn it off for color-critical work** such as photo or video editing: right-click the menu bar icon or use *Turn off* in the panel.
 - **Builds from source are ad hoc signed**, so macOS may ask for location permission again after each rebuild.
 
 ## Development

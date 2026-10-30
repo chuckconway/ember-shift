@@ -232,6 +232,81 @@ MainActor.assumeIsolated {
         c.hold(custom)
         check(c.holdEnd?.time == at(22, 30), "a new hold after 7 PM ends at Night")
     }
+
+    // Turning off shows true color for the chosen time, then fades back to the schedule.
+    do {
+        let (c, tint, clock, _) = fresh(at: at(20, 0))
+        c.update()
+        c.turnOff(.hour)
+        check(c.off && c.offEnd == at(21, 0), "off for an hour ends at 9 PM, got \(String(describing: c.offEnd))")
+        clock.advance(1)
+        c.stepFade()
+        check(near(tint.last, Look.neutral.multipliers), "off shows true color within a second")
+        clock.time = at(20, 59)
+        c.periodic()
+        check(c.off && near(tint.last, Look.neutral.multipliers), "still off a minute before")
+        clock.time = at(21, 0, 1)
+        c.periodic()
+        check(!c.off && c.fading, "turns back on at 9 PM with a fade")
+        clock.advance(30)
+        c.stepFade()
+        check(near(tint.last, evening.multipliers), "lands on the evening look")
+    }
+
+    // Off until morning lasts until Day starts; off until turned on lasts.
+    do {
+        let (c, _, clock, _) = fresh(at: at(20, 0))
+        c.turnOff(.fifteenMinutes)
+        check(c.offEnd == at(20, 15), "15 minutes ends at 8:15 PM")
+        c.turnOff(.morning)
+        check(c.offEnd == at(7, 0, day: 24), "until morning ends at Day tomorrow, got \(String(describing: c.offEnd))")
+        c.turnOff(.untilTurnedOn)
+        clock.time = at(12, 0, day: 30)
+        c.periodic()
+        check(c.off && c.offEnd == nil, "until turned on survives a week")
+        c.turnOn()
+        check(!c.off, "turn back on")
+    }
+
+    // Changing the look while off turns Ember back on; previews still show.
+    do {
+        let (c, tint, _, _) = fresh(at: at(20, 0))
+        c.update()
+        c.turnOff(.untilTurnedOn)
+        c.beginPreview(.night)
+        check(near(tint.last, night.multipliers), "preview shows while off")
+        c.endPreview()
+        check(c.off, "preview doesn't turn it on")
+        c.hold(custom)
+        check(!c.off && near(tint.last, custom.multipliers), "a slider drag turns it back on")
+        c.turnOff(.hour)
+        c.hold(cave, fades: true)
+        check(!c.off, "a preset turns it back on")
+        c.turnOff(.hour)
+        c.resume()
+        check(!c.off, "resume turns it back on")
+    }
+
+    // Off survives a relaunch, and a relaunch after it ran out follows the schedule.
+    do {
+        let (first, _, _, defaults) = fresh(at: at(20, 0))
+        first.turnOff(.hour)
+        let (second, tint, _, _) = fresh(at: at(20, 30), defaults: defaults)
+        second.update()
+        check(second.off && near(tint.last, Look.neutral.multipliers), "relaunch stays off")
+        let (third, tint3, _, _) = fresh(at: at(21, 30), defaults: defaults)
+        third.update()
+        check(!third.off && near(tint3.last, evening.multipliers), "relaunch after it ran out follows the schedule")
+    }
+
+    // The right-click menu offers the durations, and turning back on when off.
+    do {
+        let (c, _, _, _) = fresh(at: at(20, 0))
+        let titles = { StatusMenu(controller: c).menu().items.map(\.title) }
+        check(titles().contains("For an hour") && !titles().contains("Turn back on"), "menu when on: \(titles())")
+        c.turnOff(.hour)
+        check(titles().first == "Off until \(at(21, 0).shortTime)" && titles().contains("Turn back on"), "menu when off: \(titles())")
+    }
 }
 
 print(failures == 0 ? "All controller checks passed" : "\(failures) controller check(s) failed")

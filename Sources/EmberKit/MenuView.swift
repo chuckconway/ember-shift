@@ -8,7 +8,7 @@ public struct MenuBarIcon: View {
     public init(controller: Controller) { self.controller = controller }
 
     public var body: some View {
-        Image(systemName: controller.holding ? "flame.fill" : controller.state.phase.symbol + ".fill")
+        Image(systemName: controller.off ? "circle.slash" : controller.holding ? "flame.fill" : controller.state.phase.symbol + ".fill")
     }
 }
 
@@ -22,7 +22,7 @@ public struct MenuView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if controller.fluxRunning { fluxBanner }
-            if controller.holding { holdCard } else { scheduleHeader }
+            if controller.off { offCard } else if controller.holding { holdCard } else { scheduleHeader }
             adjust
             presets
             today
@@ -100,6 +100,23 @@ public struct MenuView: View {
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.accent.opacity(0.35)))
     }
 
+    private var offCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 14) {
+                badge("circle.slash")
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Off · true color").font(.system(size: 17, weight: .semibold))
+                    Text(controller.offEnd.map { "Until \($0.shortTime)" } ?? "Until you turn it back on")
+                        .foregroundStyle(Theme.secondary)
+                }
+            }
+            Button("Turn back on") { controller.turnOn() }
+                .buttonStyle(PillButtonStyle(kind: .primary, height: 36, fullWidth: true))
+        }
+        .padding(14)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
+    }
+
     private var fluxBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.yellow)
@@ -139,8 +156,8 @@ public struct MenuView: View {
                     valueText: "\(Int((look.brightness * 100).rounded())) percent"
                 )
             }
-            if !controller.holding {
-                Text("Adjusting holds your look until the next change.")
+            if controller.off || !controller.holding {
+                Text(controller.off ? "Adjusting turns Ember Shift back on." : "Adjusting holds your look until the next change.")
                     .font(.caption).foregroundStyle(Theme.tertiary)
             }
         }
@@ -160,7 +177,7 @@ public struct MenuView: View {
     private var presets: some View {
         HStack(spacing: 8) {
             ForEach(Controller.presets, id: \.name) { preset in
-                let selected = controller.holding && controller.target == preset.look
+                let selected = controller.holding && !controller.off && controller.target == preset.look
                 Button {
                     controller.hold(preset.look, fades: true)
                 } label: {
@@ -228,6 +245,7 @@ public struct MenuView: View {
             HStack(spacing: 8) {
                 iconButton("gearshape", help: "Schedule & settings", window: "settings")
                 iconButton("info.circle", help: "About Ember Shift", window: "about")
+                offMenu
                 Spacer()
                 Button("Quit") { NSApp.terminate(nil) }
                     .buttonStyle(PillButtonStyle(kind: .quiet))
@@ -235,6 +253,31 @@ public struct MenuView: View {
             .padding(.top, 12)
             .overlay(alignment: .top) { Rectangle().fill(Theme.hairline).frame(height: 1) }
         }
+    }
+
+    private var offMenu: some View {
+        Menu {
+            Section(controller.off ? "Stay off" : "Turn off") {
+                ForEach(Controller.OffDuration.allCases, id: \.self) { duration in
+                    Button(StatusMenu.title(duration, controller)) { controller.turnOff(duration) }
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "circle.slash").font(.system(size: 13))
+                Text("Turn off")
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+            }
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Show true color for a while")
     }
 
     private func iconButton(_ symbol: String, help: String, window: String) -> some View {
