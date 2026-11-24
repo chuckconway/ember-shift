@@ -29,10 +29,9 @@ Requirements: macOS 15 or later, and Swift 6 (Xcode or the Command Line Tools: `
 git clone https://github.com/chuckconway/ember-shift.git
 cd ember-shift
 ./build-app.sh
-open ~/Applications/"Ember Shift.app"
 ```
 
-`build-app.sh` runs the checks, builds a release binary, signs it, and installs `Ember Shift.app` to `~/Applications`. On first launch it asks for your location; you can decline and enter coordinates in Settings instead.
+`build-app.sh` runs the checks, builds a release binary, signs it, installs `Ember Shift.app` to `/Applications` and opens it. It installs there rather than `~/Applications` because menu-bar managers such as Dimble can lose track of icons from apps in `~/Applications`. On first launch it asks for your location; you can decline and enter coordinates in Settings instead.
 
 Before running it, quit f.lux and turn off Night Shift (System Settings → Displays → Night Shift). All three write the same gamma tables and will fight.
 
@@ -51,7 +50,8 @@ Before running it, quit f.lux and turn off Night Shift (System Settings → Disp
 | `swift run EmberChecks` | Core checks: color math, sun times against reference values, schedule easing |
 | `swift run EmberKitChecks` | Controller checks with a fake clock and display: holds ending at the next change, fades, previews, relaunch, tint repair |
 | `swift run EmberSnapshot <dir>` | Renders the panel, schedule window and About window to PNGs offscreen, without touching the display |
-| `./build-app.sh` | Checks, release build, sign, install |
+| `./build-app.sh` | Checks, release build, sign, install to /Applications, launch |
+| `scripts/test-install.sh` | Installer checks in throwaway folders: it removes only copies whose bundle id is Ember Shift's |
 
 The code lives in three modules. `EmberCore` holds the pure logic: color temperature, the NOAA sunrise equation and the schedule. `EmberKit` holds the controller, the gamma output and the SwiftUI views. `Ember` is the app entry point.
 

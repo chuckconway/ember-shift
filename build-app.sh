@@ -1,8 +1,9 @@
 #!/bin/zsh
-# Builds Ember Shift.app (release) with hardened runtime, signs it, and installs it to ~/Applications.
+# Builds Ember Shift.app (release) with hardened runtime, signs it, installs it to /Applications
+# (see scripts/install-app.sh), and launches that copy.
 #
 #   SIGN_IDENTITY  codesign identity; default "-" (ad hoc). release.sh passes a Developer ID.
-#   INSTALL=0      build and sign only; leave ~/Applications alone.
+#   INSTALL=0      build and sign only; leave /Applications alone.
 set -euo pipefail
 cd "${0:A:h}"
 
@@ -46,8 +47,9 @@ codesign --verify --strict "$app"
 echo "Signed $app ($identity)"
 
 [[ "${INSTALL:-1}" == 0 ]] && exit 0
+scripts/test-install.sh
 pkill -x Ember 2>/dev/null && sleep 1 || true
-# Ember.app is the pre-rename bundle.
-rm -rf ~/Applications/Ember.app ~/Applications/"Ember Shift.app"
-cp -R "$app" ~/Applications/
-echo "Installed ~/Applications/Ember Shift.app"
+scripts/install-app.sh "$app"
+# Launch the installed copy, never build/: launching registers an app with LaunchServices,
+# which is how duplicate registrations appeared.
+open "/Applications/Ember Shift.app"

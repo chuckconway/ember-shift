@@ -204,13 +204,35 @@ public final class Controller: ObservableObject {
         get { SMAppService.mainApp.status == .enabled }
         set {
             do {
-                if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+                try setLoginItem(newValue)
                 message = nil
             } catch {
                 message = "Open at login: \(error.localizedDescription)"
             }
             objectWillChange.send()
         }
+    }
+
+    private static let loginRegisteredPathKey = "login.registeredPath"
+
+    private func setLoginItem(_ on: Bool) throws {
+        if on {
+            try SMAppService.mainApp.register()
+            defaults.set(Bundle.main.bundlePath, forKey: Self.loginRegisteredPathKey)
+        } else {
+            try SMAppService.mainApp.unregister()
+            defaults.removeObject(forKey: Self.loginRegisteredPathKey)
+        }
+    }
+
+    /// macOS remembers a login item by the path it was registered from, so after the app moves
+    /// (the install into /Applications) the entry points at nothing. Called at launch: a login item
+    /// registered from somewhere else is registered again from here.
+    public func followLoginItemMove() {
+        guard SMAppService.mainApp.status == .enabled,
+              defaults.string(forKey: Self.loginRegisteredPathKey) != Bundle.main.bundlePath else { return }
+        try? SMAppService.mainApp.unregister()
+        try? setLoginItem(true)
     }
 
     // MARK: Updating the screen

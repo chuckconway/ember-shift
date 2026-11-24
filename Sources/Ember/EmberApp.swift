@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         controller.start()
+        controller.followLoginItemMove()
         statusMenu.install()
         // `kill` and Ctrl-C would otherwise skip cleanup.
         for sig in [SIGTERM, SIGINT, SIGHUP] {
