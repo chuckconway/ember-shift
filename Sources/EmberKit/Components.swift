@@ -58,7 +58,7 @@ extension Phase {
         switch self {
         case .day: "sun.max"
         case .evening: "sunset"
-        case .night: "moon"
+        case .night: "lamp.table"
         }
     }
 }
