@@ -255,9 +255,31 @@ public struct MenuView: View {
         }
     }
 
-    private var offMenu: some View {
+    @ViewBuilder private var offMenu: some View {
+        if controller.off {
+            Button {
+                controller.turnOn()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "power").font(.system(size: 13))
+                    Text("Turn on")
+                }
+                .padding(.horizontal, 12)
+                .frame(height: 32)
+                .background(Theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.text)
+            .help("Turn Ember Shift back on")
+        } else {
+            turnOffMenu
+        }
+    }
+
+    private var turnOffMenu: some View {
         Menu {
-            Section(controller.off ? "Stay off" : "Turn off") {
+            Section("Turn off") {
                 ForEach(Controller.OffDuration.allCases, id: \.self) { duration in
                     Button(StatusMenu.title(duration, controller)) { controller.turnOff(duration) }
                 }
