@@ -31,11 +31,14 @@ struct EmberApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let controller = Controller(tint: DisplayGamma())
+    private lazy var statusMenu = StatusMenu(controller: controller)
     private var signalSources: [DispatchSourceSignal] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         controller.start()
+        controller.followLoginItemMove()
+        statusMenu.install()
         // `kill` and Ctrl-C would otherwise skip cleanup.
         for sig in [SIGTERM, SIGINT, SIGHUP] {
             signal(sig, SIG_IGN)
